@@ -125,12 +125,16 @@ format(Formatter, Key, NKey, Value, Record) when is_function(Formatter, 4) ->
 format(Formatter, Key, _NKey, Value, Record) ->
     throw({invalid_formatter, Formatter, Key, Value, Record}).
 
+
+
 key_value_converter(K, V, Acc, Fun, Record) when is_list(K) ->
     NK = list_to_atom(K),
     key_value_converter(NK, V, Acc, Fun, Record);
 key_value_converter(K, V, Acc, Fun, Record) when is_binary(K) ->
     NK = binary_to_atom(K, utf8),
     key_value_converter(NK, V, Acc, Fun, Record);
+key_value_converter(K, undefined, Acc, undefined, _Record) when is_atom(K) ->
+    Acc;
 key_value_converter(K, V, Acc, Fun, Record) when is_atom(K) ->
     case Fun of
         undefined ->
@@ -175,8 +179,6 @@ convert_by_convert_list(K, V, Acc0, ConveterList, Record) ->
                       append_value({NK, NV}, Acc)
               end
       end, Acc0, AllConverter).
-            
-                
 
 to_atom(K) when is_atom(K) ->
     K;

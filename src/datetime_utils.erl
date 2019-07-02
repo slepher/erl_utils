@@ -33,6 +33,9 @@
 -export([is_older_by/3, is_sooner_by/3]).
 -export([subtract/2, add/2]).
 -export([parse_datetime/1]).
+-export([p_time_all/0, p_time/0, p_integer/0, p_time_with_dot/0, p_datetime/0]).
+
+-compile(export_all).
 
 -include_lib("parsec/include/parsec.hrl").
 
@@ -274,12 +277,13 @@ p_datetime() ->
                    parsec:bind(
                      parsec:choice([p_date_with_sep(), p_date_without_sep()]),
                      fun(Date) ->
-                             parsec:choice([parsec:bind(
-                                              parsec:do([p_time_with_dot(), p_time_all()]),
-                                              fun(Time) ->
-                                                      parsec:return(Time#{date => Date})
-                                                          
-                                              end),
+                             parsec:choice([parsec:do([parsec:char(32),
+                                                       parsec:bind(
+                                                         p_time_all(),
+                                                         fun(Time) ->
+                                                                 parsec:return(Time#{date => Date})
+                                                                     
+                                                         end)]),
                                             parsec:return(#{date => Date})])
                      end),
                    p_time_all()]).

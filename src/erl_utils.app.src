@@ -4,7 +4,7 @@
   {vsn, "0.1.0"},
   {modules, [record_utils, mnesia_utils]},
   {registered, []},
-  {applications, [kernel, stdlib, sasl]},
+  {applications, [kernel, stdlib, sasl, parsec]},
   {mod, {erl_utils_app, []}},
   {env, []}
 ]}.

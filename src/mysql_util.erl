@@ -38,7 +38,7 @@ query_statement(Tab, Attrs, Options) when is_map(Options) ->
             [] ->
                 undefined;
             _ ->
-                ["where ", string:join(generate_attr_block(Attrs), " and ")]
+                ["where ", string:join(generate_attr_block(Attrs, Options), " and ")]
         end,
     Groups = maps:get(group_by, Options, undefined),
     GroupStr = 
@@ -54,7 +54,7 @@ query_statement(Tab, Attrs, Options) when is_map(Options) ->
     
     
 update_statement(Tab, Type, Attrs) ->
-    SetBlock = generate_attr_block(Attrs),
+    SetBlock = generate_attr_block(Attrs, #{}),
     Head = 
         case Type of
             insert ->
@@ -78,13 +78,29 @@ delete_statement(Tab, Attrs) ->
             [] ->
                 undefined;
             _ ->
-                ["where ", string:join(generate_attr_block(Attrs), " and ")]
+                ["where ", string:join(generate_attr_block(Attrs, #{}), " and ")]
         end,
     list_to_binary(string:join(
                      filter_empty(["delete from",
                                    to_list(Tab), ConditionStr]), " ")).
 
-generate_attr_block(Attrs) ->
+format_value(Value) when is_binary(Value) ->
+    io_lib:format("'~s'", [Value]);
+format_value(Value) ->
+    io_lib:format("~p", [Value]).
+
+generate_attr_block(Attrs, #{direct := true}) ->
+    lists:map(
+      fun({Key, [undefined, V2]}) ->
+              io_lib:format("~p <= ~s", [Key, format_value(V2)]);
+         ({Key, [V1, undefined]}) ->
+              io_lib:format("~p >= ~s", [Key, format_value(V1)]);
+         ({Key, [V1, V2]}) ->
+              io_lib:format("~p between ~s and ~s", [Key, format_value(V1), format_value(V2)]);
+         ({Key, Value}) ->
+              io_lib:format("~p = ~s", [Key, format_value(Value)])
+       end, Attrs);
+generate_attr_block(Attrs, #{}) ->
     lists:map(
       fun({Key, [undefined, _V2]}) ->
               io_lib:format("~p <= ?", [Key]);
@@ -98,7 +114,7 @@ generate_attr_block(Attrs) ->
               io_lib:format("~p = ?", [Key]);
          (Key) ->
               io_lib:format("~s = ?", [Key])
-       end, Attrs).
+      end, Attrs).
 
 to_list(Atom) when is_atom(Atom) ->
     atom_to_list(Atom);

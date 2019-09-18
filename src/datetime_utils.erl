@@ -277,7 +277,7 @@ p_datetime() ->
                    parsec:bind(
                      parsec:choice([p_date_with_sep(), p_date_without_sep()]),
                      fun(Date) ->
-                             parsec:choice([parsec:do([parsec:char(32),
+                             parsec:choice([parsec:do([parsec:many(parsec:char(32)),
                                                        parsec:bind(
                                                          p_time_all(),
                                                          fun(Time) ->

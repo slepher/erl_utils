@@ -43,9 +43,13 @@ record_to_proplist(Rec, Fields, RequiredFields)  -> % Rec should be a record
                              not_found -> 
                                  throw({invalid_field, Field});
                              Index ->
-                                 V = lists:nth(Index, Values),
-                                 NV = format(Formatter, Field, Field, V, Rec),
-                                 [ [Target|FAcc0], [NV|VAcc0] ]
+                                 case lists:nth(Index, Values) of
+                                     undefined ->
+                                         [FAcc0, VAcc0];
+                                     V ->
+                                         NV = format(Formatter, Field, Field, V, Rec),
+                                         [ [Target|FAcc0], [NV|VAcc0] ]
+                                 end
                          end
                  end, [[], []], RequiredFields),
     lists:zip(Fs, Vs).
@@ -133,7 +137,7 @@ key_value_converter(K, V, Acc, Fun, Record) when is_list(K) ->
 key_value_converter(K, V, Acc, Fun, Record) when is_binary(K) ->
     NK = binary_to_atom(K, utf8),
     key_value_converter(NK, V, Acc, Fun, Record);
-key_value_converter(K, undefined, Acc, undefined, _Record) when is_atom(K) ->
+key_value_converter(K, undefined, Acc, _Fun, _Record) when is_atom(K) ->
     Acc;
 key_value_converter(K, V, Acc, Fun, Record) when is_atom(K) ->
     case Fun of

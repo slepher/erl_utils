@@ -137,7 +137,7 @@ key_value_converter(K, V, Acc, Fun, Record) when is_list(K) ->
 key_value_converter(K, V, Acc, Fun, Record) when is_binary(K) ->
     NK = binary_to_atom(K, utf8),
     key_value_converter(NK, V, Acc, Fun, Record);
-key_value_converter(K, undefined, Acc, _Fun, _Record) when is_atom(K) ->
+key_value_converter(K, undefined, Acc, undefined, _Record) when is_atom(K) ->
     Acc;
 key_value_converter(K, V, Acc, Fun, Record) when is_atom(K) ->
     case Fun of
@@ -172,15 +172,15 @@ convert_by_convert_list(K, V, Acc0, ConveterList, Record) ->
                   ignore__ ->
                       Acc;
                   true ->
-                      append_value({K, V}, Acc);
+                      append_value_not_undefined({K, V}, Acc);
                   NK when is_atom(NK) ->
-                      append_value({NK, V}, Acc);
+                      append_value_not_undefined({NK, V}, Acc);
                   Formatter when is_function(Formatter) ->
                       NV = format(Formatter, K, K, V, Record),
-                      append_value({K, NV}, Acc);
+                      append_value_not_undefined({K, NV}, Acc);
                   {NK, Formatter} when is_atom(NK), is_function(Formatter) ->
                       NV = format(Formatter, K, NK, V, Record),
-                      append_value({NK, NV}, Acc)
+                      append_value_not_undefined({NK, NV}, Acc)
               end
       end, Acc0, AllConverter).
 
@@ -198,6 +198,12 @@ append_values([], Acc) ->
     Acc;
 append_values(KV, Acc) ->
     append_value(KV, Acc).
+
+append_value_not_undefined({_Key, undefined}, Acc) ->
+    Acc;
+append_value_not_undefined(KV, Acc) ->
+    append_value(KV, Acc).
+
 
 append_value(Key, Acc) when is_atom(Key), is_list(Acc) ->
     [Key|Acc];

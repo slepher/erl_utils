@@ -13,7 +13,7 @@
          record_to_proplist/3]).
 -export([proplist_to_record/3]).
 -export([proplists_to_record/3, proplists_to_record/4]).
--export([record_to_proplists/2, record_to_proplists/3]).
+-export([record_to_proplists/2, record_to_proplists/3, record_to_proplists/4]).
 -export([convert_by_convert_list/5]).
 
 -include("record_utils.hrl").
@@ -88,7 +88,7 @@ proplists_to_record(Proplists, Fun, Fields, Default) ->
         lists:foldl(
           fun ({K,V}, Acc) ->
                   NK = to_atom(K),
-                  key_value_converter(NK, V, Acc, Fun, Proplists)
+                  key_value_converter(NK, V, Acc, Fun, Proplists, #{})
           end, maps:new(), Proplists),
     L = 
         lists:map(
@@ -107,12 +107,15 @@ record_to_proplists(Record, Fields) ->
     record_to_proplists(Record, undefined, Fields).
 
 record_to_proplists(Record, Fun, Fields) ->
+    record_to_proplists(Record, Fun, Fields, #{}).
+
+record_to_proplists(Record, Fun, Fields, Opts) ->
     Values = tl(tuple_to_list(Record)),
     Pairs = lists:zip(Fields, Values),
     lists:reverse(
       lists:foldl(
         fun({K, V}, Acc) ->
-                key_value_converter(K, V, Acc, Fun, Record)
+                key_value_converter(K, V, Acc, Fun, Record, Opts)
         end, [], Pairs)).
 
 %%%===================================================================
@@ -129,17 +132,17 @@ format(Formatter, Key, NKey, Value, Record) when is_function(Formatter, 4) ->
 format(Formatter, Key, _NKey, Value, Record) ->
     throw({invalid_formatter, Formatter, Key, Value, Record}).
 
-
-
-key_value_converter(K, V, Acc, Fun, Record) when is_list(K) ->
+key_value_converter(K, V, Acc, Fun, Record, Opts) when is_list(K) ->
     NK = list_to_atom(K),
-    key_value_converter(NK, V, Acc, Fun, Record);
-key_value_converter(K, V, Acc, Fun, Record) when is_binary(K) ->
+    key_value_converter(NK, V, Acc, Fun, Record, Opts);
+key_value_converter(K, V, Acc, Fun, Record, Opts) when is_binary(K) ->
     NK = binary_to_atom(K, utf8),
-    key_value_converter(NK, V, Acc, Fun, Record);
-key_value_converter(K, undefined, Acc, undefined, _Record) when is_atom(K) ->
+    key_value_converter(NK, V, Acc, Fun, Record, Opts);
+key_value_converter(K, undefined, Acc, undefined, _Record, #{keep_null := true}) when is_atom(K) ->
+    append_value({K, undefined}, Acc);
+key_value_converter(K, undefined, Acc, undefined, _Record, #{}) when is_atom(K) ->
     Acc;
-key_value_converter(K, V, Acc, Fun, Record) when is_atom(K) ->
+key_value_converter(K, V, Acc, Fun, Record, Opts) when is_atom(K) ->
     case Fun of
         undefined ->
             append_value({K, V}, Acc);
@@ -157,14 +160,17 @@ key_value_converter(K, V, Acc, Fun, Record) when is_atom(K) ->
             Pairs =  Fun(K, V, Record),
             append_values(Pairs, Acc);
         ConveterList when is_list(ConveterList) ->
-            convert_by_convert_list(K, V, Acc, ConveterList, Record);
+            convert_by_convert_list(K, V, Acc, ConveterList, Record, Opts);
         Other ->
             throw({invalid_converter, Other})
     end;
-key_value_converter(K, _V, _Acc, _Fun, _Record) ->
+key_value_converter(K, _V, _Acc, _Fun, _Record, _Opts) ->
     throw({invalid_key, K}).
 
 convert_by_convert_list(K, V, Acc0, ConveterList, Record) ->
+    convert_by_convert_list(K, V, Acc0, ConveterList, Record, #{}).
+
+convert_by_convert_list(K, V, Acc0, ConveterList, Record, Opts) ->
     AllConverter = proplists:get_all_values(K, ConveterList),
     lists:foldl(
       fun(Converter, Acc) ->
@@ -172,15 +178,15 @@ convert_by_convert_list(K, V, Acc0, ConveterList, Record) ->
                   ignore__ ->
                       Acc;
                   true ->
-                      append_value_not_undefined({K, V}, Acc);
+                      append_value_not_undefined({K, V}, Acc, Opts);
                   NK when is_atom(NK) ->
-                      append_value_not_undefined({NK, V}, Acc);
+                      append_value_not_undefined({NK, V}, Acc, Opts);
                   Formatter when is_function(Formatter) ->
                       NV = format(Formatter, K, K, V, Record),
-                      append_value_not_undefined({K, NV}, Acc);
+                      append_value_not_undefined({K, NV}, Acc, Opts);
                   {NK, Formatter} when is_atom(NK), is_function(Formatter) ->
                       NV = format(Formatter, K, NK, V, Record),
-                      append_value_not_undefined({NK, NV}, Acc)
+                      append_value_not_undefined({NK, NV}, Acc, Opts)
               end
       end, Acc0, AllConverter).
 
@@ -199,9 +205,11 @@ append_values([], Acc) ->
 append_values(KV, Acc) ->
     append_value(KV, Acc).
 
-append_value_not_undefined({_Key, undefined}, Acc) ->
+append_value_not_undefined(KV, Acc, #{keep_null := true}) ->
+    append_value(KV, Acc);
+append_value_not_undefined({_Key, undefined}, Acc, #{}) ->
     Acc;
-append_value_not_undefined(KV, Acc) ->
+append_value_not_undefined(KV, Acc, _Opts) ->
     append_value(KV, Acc).
 
 
